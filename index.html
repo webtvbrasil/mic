@@ -3,44 +3,60 @@
 <head>
   <meta charset="UTF-8">
   <title>Gravador de Áudio</title>
-  <script src="https://cdn.webrtc-experiment.com/MediaStreamRecorder.js"></script>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
+      background: #f0f2f5;
+      font-family: sans-serif;
       display: flex;
       justify-content: center;
-      margin-top: 50px;
-      font-family: sans-serif;
+      align-items: center;
+      height: 100vh;
     }
 
     .container {
-      width: 500px;
+      width: 520px;
       border: 3px solid black;
+      border-radius: 10px;
+      background: white;
       padding: 20px;
-      text-align: center;
-      box-sizing: border-box;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
     }
 
     .display {
       width: 100%;
-      height: 400px;
-      background: #45526d;
-      margin-bottom: 20px;
-      overflow-y: auto;
+      height: 300px;
+      background: #3f4a65;
+      color: white;
+      border-radius: 8px;
       padding: 10px;
+      overflow-y: auto;
+      text-align: center;
     }
 
-    .microfone {
-      width: 60px;
-      height: 60px;
+    .audio-controls {
+      margin-top: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
       cursor: pointer;
       transition: transform 0.2s ease;
     }
 
-    .microfone:hover {
+    .icon-btn:hover {
       transform: scale(1.2);
     }
 
-    .gravando {
+    .microfone.ativo {
       fill: red;
       animation: pulsar 1s infinite;
     }
@@ -51,24 +67,19 @@
       100% { transform: scale(1); }
     }
 
-    .audio-container {
-      margin-top: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    button.audio-btn {
-      padding: 5px 10px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-
     textarea {
+      width: 100%;
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-family: monospace;
+    }
+
+    audio {
       margin-top: 15px;
       width: 100%;
-      box-sizing: border-box;
+      display: block;
     }
   </style>
 </head>
@@ -76,91 +87,95 @@
 
 <div class="container">
   <div id="saida" class="display">
-    Clique no microfone para gravar 3 segundos de áudio.
+    Clique no microfone para iniciar e parar a gravação de áudio.
   </div>
 
-  <div class="audio-container">
-    <svg id="botao_microfone" class="microfone" viewBox="0 0 24 24" fill="black" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
-      <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/>
-    </svg>
+  <div class="audio-controls">
+    <!-- Ícone Microfone -->
+    <button id="btn_gravar" class="icon-btn" title="Gravar">
+      <svg id="microfone" class="microfone" width="40" height="40" viewBox="0 0 24 24" fill="black" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/>
+        <path d="M19 11a1 1 0 0 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 7 7 0 0 0 6 6.92V21a1 1 0 1 0 2 0v-3.08A7 7 0 0 0 19 11z"/>
+      </svg>
+    </button>
 
-    <button id="btn_play" class="audio-btn" disabled>▶️ Play</button>
-    <button id="btn_stop" class="audio-btn" disabled>⏹️ Stop</button>
+    <!-- Botão Play -->
+    <button id="btn_play" class="icon-btn" title="Play" disabled>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="#007bff" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 5v14l11-7z"/>
+      </svg>
+    </button>
+
+    <!-- Botão Stop -->
+    <button id="btn_stop" class="icon-btn" title="Stop" disabled>
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="#dc3545" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 6h12v12H6z"/>
+      </svg>
+    </button>
   </div>
 
-  <audio id="audio" controls style="margin-top:15px; display:none;"></audio>
+  <audio id="audio" controls style="display: none;"></audio>
+
   <textarea id="base64_texto" rows="6" placeholder="Base64 será exibido aqui..." readonly></textarea>
 </div>
 
 <script>
-  const botao_microfone = document.getElementById('botao_microfone');
+  const btn_gravar = document.getElementById('btn_gravar');
+  const microfone_svg = document.getElementById('microfone');
   const saida = document.getElementById('saida');
-  const audio_elemento = document.getElementById('audio');
+  const audio_el = document.getElementById('audio');
   const base64_texto = document.getElementById('base64_texto');
   const btn_play = document.getElementById('btn_play');
   const btn_stop = document.getElementById('btn_stop');
 
-  let gravando = false;
-  let audioURL = null;
+  let media_recorder;
+  let partes_audio = [];
+  let url_audio;
 
-  botao_microfone.addEventListener('click', () => {
-    if (gravando) return;
-    gravando = true;
+  btn_gravar.addEventListener('click', async () => {
+    if (!media_recorder || media_recorder.state === "inactive") {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      media_recorder = new MediaRecorder(stream);
+      partes_audio = [];
 
-    botao_microfone.classList.add('gravando');
-    saida.innerText = "Gravando áudio por 3 segundos...";
+      media_recorder.ondataavailable = e => partes_audio.push(e.data);
 
-    const mediaConstraints = { audio: true };
+      media_recorder.onstop = () => {
+        const blob_final = new Blob(partes_audio, { type: 'audio/webm' });
+        url_audio = URL.createObjectURL(blob_final);
 
-    navigator.getUserMedia(mediaConstraints, onMediaSuccess, onMediaError);
-  });
+        audio_el.src = url_audio;
+        audio_el.style.display = 'block';
+        btn_play.disabled = false;
+        btn_stop.disabled = false;
 
-  function onMediaSuccess(stream) {
-    const mediaRecorder = new MediaStreamRecorder(stream);
-    mediaRecorder.mimeType = 'audio/webm';
+        // Converter para base64
+        const leitor = new FileReader();
+        leitor.onloadend = () => {
+          const base64 = leitor.result.split(',')[1];
+          base64_texto.value = base64;
+        };
+        leitor.readAsDataURL(blob_final);
 
-    mediaRecorder.ondataavailable = function (blob) {
-      audioURL = URL.createObjectURL(blob);
-
-      // Exibir player de áudio
-      audio_elemento.src = audioURL;
-      audio_elemento.style.display = "block";
-
-      // Ativar botões
-      btn_play.disabled = false;
-      btn_stop.disabled = false;
-
-      // Converter para base64
-      const leitor = new FileReader();
-      leitor.onloadend = () => {
-        const base64 = leitor.result.split(',')[1];
-        base64_texto.value = base64;
-        botao_microfone.classList.remove('gravando');
-        gravando = false;
+        saida.innerHTML = "Gravação finalizada. Áudio e base64 prontos.";
+        microfone_svg.classList.remove('ativo');
       };
-      leitor.readAsDataURL(blob);
-    };
 
-    mediaRecorder.start(3000);
-  }
-
-  function onMediaError(e) {
-    console.error("Erro ao acessar microfone", e);
-    saida.innerText = "Erro ao acessar microfone: " + e.message;
-    botao_microfone.classList.remove('gravando');
-    gravando = false;
-  }
-
-  btn_play.addEventListener('click', () => {
-    if (audioURL) {
-      audio_elemento.play();
+      media_recorder.start();
+      saida.innerHTML = "🎙️ Gravando... clique novamente para parar.";
+      microfone_svg.classList.add('ativo');
+    } else if (media_recorder.state === "recording") {
+      media_recorder.stop();
     }
   });
 
+  btn_play.addEventListener('click', () => {
+    audio_el.play();
+  });
+
   btn_stop.addEventListener('click', () => {
-    audio_elemento.pause();
-    audio_elemento.currentTime = 0;
+    audio_el.pause();
+    audio_el.currentTime = 0;
   });
 </script>
 
