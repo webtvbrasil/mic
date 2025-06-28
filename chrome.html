@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravador de Voz Melhorado</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #recorder-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+        }
+        #mic-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            font-size: 32px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        #mic-btn:hover {
+            background-color: #0056b3;
+        }
+        #mic-btn.recording {
+            background-color: #dc3545; /* Vermelho para gravar */
+            animation: pulse 1.5s infinite;
+        }
+        #mic-btn.recording:hover {
+            background-color: #c82333;
+        }
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+            }
+            70% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(220, 53, 69, 0);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+            }
+        }
+        #status {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #6c757d;
+        }
+        textarea {
+            width: calc(100% - 20px);
+            min-height: 200px;
+            padding: 10px;
+            margin-top: 20px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        textarea:focus {
+            border-color: #007bff;
+            outline: none;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+        #action-buttons {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .action-btn {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-size: 14px;
+        }
+        .action-btn:hover {
+            background-color: #5a6268;
+        }
+        .action-btn.copy {
+            background-color: #28a745;
+        }
+        .action-btn.copy:hover {
+            background-color: #218838;
+        }
+        .action-btn.clear {
+            background-color: #ffc107;
+            color: #333;
+        }
+        .action-btn.clear:hover {
+            background-color: #e0a800;
+        }
+        .action-btn.save {
+            background-color: #17a2b8;
+        }
+        .action-btn.save:hover {
+            background-color: #138496;
+        }
+    </style>
+</head>
+<body>
+    <div id="recorder-container">
+        <h1>Gravador de Voz</h1>
+        <button id="mic-btn" aria-label="Botão de Microfone">
+            <span id="mic-icon">🎙️</span>
+        </button>
+        <div id="status">Pressione o microfone para começar a gravar</div>
+        <textarea id="user-input" placeholder="O texto gravado aparecerá aqui..."></textarea>
+        <div id="action-buttons">
+            <button class="action-btn copy" id="copy-btn">Copiar Texto</button>
+            <button class="action-btn clear" id="clear-btn">Limpar Texto</button>
+            <button class="action-btn save" id="save-btn">Salvar como .txt</button>
+        </div>
+    </div>
+
+    <script>
+        const micBtn = document.getElementById("mic-btn");
+        const micIcon = document.getElementById("mic-icon");
+        const textarea = document.getElementById("user-input");
+        const statusDiv = document.getElementById("status");
+        const copyBtn = document.getElementById("copy-btn");
+        const clearBtn = document.getElementById("clear-btn");
+        const saveBtn = document.getElementById("save-btn");
+
+        let isRecording = false;
+        let recognition;
+        let finalTranscript = ''; // Armazena o texto final acumulado
+
+        // Cria instância da API nativa do Chrome
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        if (!SpeechRecognition) {
+            alert("Seu navegador não suporta reconhecimento de voz. Por favor, use o Google Chrome.");
+            micBtn.disabled = true;
+            statusDiv.textContent = "Navegador não suportado.";
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'pt-BR';
+            recognition.continuous = true; // Permite reconhecimento contínuo
+            recognition.interimResults = true; // Exibe resultados provisórios
+
+            // Quando há resultados (provisórios ou finais)
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let newFinalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        newFinalTranscript += event.results[i][0].transcript.trim();
+                    } else {
+                        interimTranscript += event.results[i][0].transcript.trim();
+                    }
+                }
+
+                // Atualiza o textarea: texto final acumulado + texto provisório (se houver)
+                textarea.value = finalTranscript + interimTranscript;
+                
+                // Scroll para o final
+                textarea.scrollTop = textarea.scrollHeight;
+
+                if (newFinalTranscript) {
+                    finalTranscript += newFinalTranscript + ' '; // Adiciona espaço para separar palavras
+                }
+            };
+
+            recognition.onend = () => {
+                if (isRecording) {
+                    statusDiv.textContent = "Reconectando...";
+                    recognition.start(); // Reinicia automaticamente se ainda estiver no modo de gravação
+                } else {
+                    statusDiv.textContent = "Gravação finalizada.";
+                    finalTranscript = textarea.value.trim() + ' '; // Garante que o texto final seja o que está no textarea
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Erro no reconhecimento de voz:", event.error);
+                statusDiv.textContent = `Erro: ${event.error}. Tentando reconectar...`;
+                if (isRecording) {
+                    // Tenta reiniciar após um pequeno atraso para evitar loop de erro
+                    setTimeout(() => {
+                        recognition.start();
+                    }, 500); 
+                }
+            };
+        }
+
+        // Funções de controle do reconhecimento
+        function startRecognition() {
+            try {
+                finalTranscript = textarea.value.trim() + ' '; // Inicia com o texto atual no textarea
+                recognition.start();
+                micBtn.classList.add("recording");
+                micIcon.textContent = "🔴"; // Ícone de gravação
+                statusDiv.textContent = "Gravando... Fale agora.";
+            } catch (e) {
+                console.error("Erro ao iniciar reconhecimento:", e.message);
+                statusDiv.textContent = "Erro ao iniciar. Tente novamente.";
+                micBtn.classList.remove("recording");
+                micIcon.textContent = "🎙️";
+                isRecording = false; // Garante que o estado seja desligado em caso de erro
+            }
+        }
+
+        function stopRecognition() {
+            recognition.stop();
+            micBtn.classList.remove("recording");
+            micIcon.textContent = "🎙️"; // Ícone normal
+            statusDiv.textContent = "Gravação pausada.";
+        }
+
+        // Controle do botão do microfone
+        micBtn.addEventListener("click", () => {
+            isRecording = !isRecording;
+
+            if (isRecording) {
+                startRecognition();
+            } else {
+                stopRecognition();
+            }
+        });
+
+        // Botões de ação adicionais
+        copyBtn.addEventListener("click", () => {
+            textarea.select();
+            document.execCommand('copy');
+            alert('Texto copiado para a área de transferência!');
+        });
+
+        clearBtn.addEventListener("click", () => {
+            if (confirm("Tem certeza que deseja limpar todo o texto?")) {
+                textarea.value = '';
+                finalTranscript = '';
+                statusDiv.textContent = "Texto limpo.";
+            }
+        });
+
+        saveBtn.addEventListener("click", () => {
+            const textToSave = textarea.value;
+            if (textToSave.trim() === "") {
+                alert("Não há texto para salvar.");
+                return;
+            }
+            const blob = new Blob([textToSave], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'gravacao_voz.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+            statusDiv.textContent = "Texto salvo como .txt!";
+        });
+
+        // Carrega o texto do Local Storage ao carregar a página
+        window.addEventListener('load', () => {
+            const savedText = localStorage.getItem('recordedText');
+            if (savedText) {
+                textarea.value = savedText;
+                finalTranscript = savedText + ' ';
+                statusDiv.textContent = "Texto anterior carregado.";
+            }
+        });
+
+        // Salva o texto no Local Storage a cada 5 segundos ou ao parar de gravar
+        let saveTimer;
+        textarea.addEventListener('input', () => {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(() => {
+                localStorage.setItem('recordedText', textarea.value);
+            }, 5000); // Salva a cada 5 segundos de inatividade no input
+        });
+
+        // Salva também quando a página está prestes a ser fechada
+        window.addEventListener('beforeunload', () => {
+            localStorage.setItem('recordedText', textarea.value);
+        });
+
+    </script>
+</body>
+</html>
