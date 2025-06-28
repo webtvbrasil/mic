@@ -428,3 +428,89 @@ footer p {
     width: 100%;
   }
 }
+/* Estilos para os ícones no topo dos cards */
+.icon-top {
+    font-size: 3rem;
+    /* Tamanho do ícone */
+    display: block;
+    /* Garante que o ícone ocupe toda a largura */
+    text-align: center;
+    /* Centraliza o ícone horizontalmente */
+    margin-bottom: 1rem;
+    /* Espaçamento entre o ícone e o título */
+    color: #8b5cf6;
+    /* Cor do ícone (roxo) */
+}
+
+/* Estilos para a seção de temas específicos */
+#temas-especificos {
+    padding: 4rem 0;
+    text-align: center;
+}
+
+#temas-especificos h2 {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+}
+
+.temas-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.tema {
+    background: #ffffff0d;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.tema:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.tema h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.tema p {
+    font-size: 1.1rem;
+    line-height: 1.5;
+    color: #eee;
+}
+
+.icon-tema {
+    font-size: 3rem;
+    display: block;
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #8b5cf6;
+}
+/* Estilos para a seção de depoimentos */
+#depoimentos .depoimentos-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.depoimento {
+    width: 30%;
+    text-align: left;
+}
+
+.depoimento-foto {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    margin-bottom: 10px;
+}
+
+
